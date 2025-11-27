@@ -1,9 +1,9 @@
 [core]
     remote = myremote
 [cache]
-    dir = /data2/dvc-storage
     type = symlink
     protected = false
     shared = group
+    dir = /data2/dvc-storage
 ['remote "myremote"']
     url = /data2/dvc-storage/
