@@ -1,0 +1,94 @@
+services:
+  # 1. PostgreSQL DB (SQLite 대신 사용)
+  db:
+    image: postgres:14
+    container_name: mlflow_db
+    environment:
+      - POSTGRES_USER=mlflow
+      - POSTGRES_PASSWORD=mlflow
+      - POSTGRES_DB=mlflow_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. MLflow Server
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow_server
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      # [핵심] SQLite 파일 대신 PostgreSQL DB 서버에 접속
+      - MLFLOW_BACKEND_STORE_URI=postgresql://mlflow:mlflow@db:5432/mlflow_db      
+      # 모델 파일(Artifacts)은 그대로 대용량 디스크 유지
+      - MLFLOW_ARTIFACT_ROOT=${PROJECT_ROOT}/mlflow/artifacts
+    volumes:
+      # 모델 파일 경로 연결
+      - ${PROJECT_ROOT}/mlflow/artifacts:${PROJECT_ROOT}/mlflow/artifacts
+      - ${DATA_STORAGE}:${DATA_STORAGE}
+    # DB 드라이버(psycopg2) 설치 후 서버 실행하는 안전한 커맨드
+    command: >
+      /bin/sh -c "pip install psycopg2-binary && mlflow server 
+      --backend-store-uri postgresql://mlflow:mlflow@db:5432/mlflow_db 
+      --default-artifact-root /data1/project/private/mlflow/artifacts 
+      --host 0.0.0.0 
+      --port 5000 
+      --allowed-hosts '*' 
+      --cors-allowed-origins '*'"
+
+  # 3. Airflow (기존 유지)
+  airflow:
+    image: apache/airflow:2.10.2
+    container_name: airflow_server
+    ports:
+      - "8088:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - _PIP_ADDITIONAL_REQUIREMENTS=dvc[s3] opencv-python-headless ultralytics mlflow
+      
+      - PROJECT_ROOT=${PROJECT_ROOT}
+
+      # 관리자 계정 자동 생성
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=${MY_USER}
+      - _AIRFLOW_WWW_USER_PASSWORD=${MY_USER}
+      - _AIRFLOW_WWW_USER_ROLE=Admin
+      - _AIRFLOW_WWW_USER_EMAIL=${MY_EMAIL}
+      
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ${PROJECT_ROOT}/mlflow/artifacts:${PROJECT_ROOT}/mlflow/artifacts
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}/MLops:${PROJECT_ROOT}/MLops
+      - ${DATA_STORAGE}:${DATA_STORAGE}
+    
+    # [수정] 리스트 형식으로 변경 (문법 오류 방지)
+   # 1. OpenCV 교체 -> 2. 계정 생성 -> 3. Airflow 실행 (순서대로 진행)
+    entrypoint: >
+      /bin/bash -c "
+      pip install 'dvc[s3]' ultralytics mlflow &&
+      pip uninstall -y opencv-python &&
+      pip install opencv-python-headless &&
+      airflow db migrate &&
+      airflow users create --username ${MY_USER} --firstname MLOps --lastname User --role Admin --email ${MY_EMAIL} --password ${MY_USER} || true &&
+      airflow standalone
+      "
+    shm_size: '8gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all      # GPU 전부 다 쓰겠다 (또는 개수 지정: 1)
+              capabilities: [gpu]
+
+volumes:
+  postgres_data:
