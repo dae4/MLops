@@ -1,9 +1,8 @@
-import os  # <--- import 추가
+import os  
 from airflow import DAG
 from airflow.operators.bash import BashOperator
 from datetime import datetime, timedelta
 
-# [수정] 환경변수에서 경로를 읽어오고, 없으면 기본값 사용
 # 이제 docker-compose에서 넘겨준 값을 사용합니다.
 PROJECT_ROOT_PATH = os.getenv("PROJECT_ROOT", "/data1/project/private")
 PROJECT_DIR = f"{PROJECT_ROOT_PATH}/MLops"
@@ -23,8 +22,6 @@ with DAG(
     catchup=False,
     tags=['mlops', 'yolo'],
 ) as dag:
-
-    PROJECT_DIR = "/data1/project/private/MLops"
 
     # Task 1: 데이터 확인 (DVC Pull)
     # git 명령어 없이 cd로 이동 후 실행

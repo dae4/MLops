@@ -1,0 +1,8 @@
+FROM ghcr.io/mlflow/mlflow:latest
+
+# 필수: DB 연결용 드라이버 설치
+RUN pip install psycopg2-binary
+
+# 실행 명령 (쉘 확장 문제 방지를 위해 exec form 사용)
+# --host 0.0.0.0을 주면 외부 접속을 허용합니다.
+ENTRYPOINT []

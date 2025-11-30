@@ -1,0 +1,21 @@
+FROM apache/airflow:2.10.2
+
+USER root
+
+# 1. 시스템 패키지 설치 (OpenCV 및 빌드용)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# 2. Python 라이브러리 설치 (충돌 방지 순서 중요)
+# Ultralytics 설치 -> (자동 설치된) GUI OpenCV 삭제 -> Headless 재설치
+RUN pip install --no-cache-dir ultralytics "dvc[s3]" mlflow psycopg2-binary && \
+    pip uninstall -y opencv-python && \
+    pip install --no-cache-dir opencv-python-headless
