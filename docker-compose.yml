@@ -1,0 +1,86 @@
+services:
+  # 1. PostgreSQL DB
+  db:
+    image: postgres:14
+    container_name: mlflow_db
+    restart: always
+    environment:
+      - POSTGRES_USER=mlflow
+      - POSTGRES_PASSWORD=mlflow
+      - POSTGRES_DB=mlflow_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. MLflow Server
+  mlflow:
+    # image: ... (삭제: build로 대체)
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: mlflow_server
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      # Airflow나 다른 컨테이너가 참조할 경로를 위해 필요할 수 있음
+      - MLFLOW_ARTIFACT_ROOT=${PROJECT_ROOT}/mlflow/artifacts
+    volumes:
+      # 경로 매핑
+      - ${PROJECT_ROOT}/mlflow/artifacts:/mlflow/artifacts
+      - ${DATA_STORAGE}:${DATA_STORAGE}
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://mlflow:mlflow@db:5432/mlflow_db
+      --default-artifact-root ${PROJECT_ROOT}/mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+      --allowed-hosts "*"
+      --cors-allowed-origins "*"
+      --serve-artifacts
+
+  # 3. Airflow
+  airflow:
+    build: 
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: airflow_server
+    ports:
+      - "8088:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - PROJECT_ROOT=${PROJECT_ROOT}
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      # environment 섹션의 사용자 생성 변수는 제거하거나 무시해도 됩니다.
+      # 아래 command에서 직접 처리합니다.
+
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ${PROJECT_ROOT}/mlflow/artifacts:${PROJECT_ROOT}/mlflow/artifacts
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}/MLops:${PROJECT_ROOT}/MLops
+      - ${DATA_STORAGE}:${DATA_STORAGE}
+
+    # [수정 핵심] DB 마이그레이션 -> 사용자 생성 -> Standalone 실행 순서로 강제 실행
+    entrypoint: >
+      /bin/bash -c "
+      airflow db migrate &&
+      airflow users create --username ${MY_USER} --firstname MLOps --lastname User --role Admin --email ${MY_EMAIL} --password ${MY_USER} || true &&
+      airflow standalone"
+    shm_size: '8gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  postgres_data:
