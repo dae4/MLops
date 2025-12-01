@@ -61,12 +61,17 @@ def train_yolo():
         # Ultralytics는 학습 결과를 runs/train/실험명/weights/best.pt 에 저장합니다.
         best_model_path = str(results.save_dir / "weights" / "best.pt")
         
-        if os.path.exists(best_model_path):
-            print(f"💾 MLflow에 모델 업로드 중... ({best_model_path})")
-            mlflow.log_artifact(best_model_path, artifact_path="model")
-            mlflow.log_artifact(str(results.save_dir / "results.csv"), artifact_path="metrics")
-        else:
-            print("⚠️ 모델 파일을 찾을 수 없습니다.")
+        abs_model_path = os.path.abspath(best_model_path)
+        
+        if os.path.exists(abs_model_path):
+            mlflow.log_artifact(abs_model_path, artifact_path="model")
+            print(f"✅ Model saved at: {abs_model_path}")
+        
+        # [핵심 변경] Run ID 대신 '모델의 절대 경로'를 반환합니다.
+        return abs_model_path
 
 if __name__ == "__main__":
-    train_yolo()
+    path = train_yolo()
+    # Airflow 환경이 아닐 때만 출력
+    if not os.getenv("AIRFLOW_HOME"):
+        print(f"Train Finished. Model Path: {path}")
