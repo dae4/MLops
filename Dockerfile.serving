@@ -1,0 +1,26 @@
+# 베이스 이미지는 가벼운 Python 3.10 사용 (혹은 3.9)
+FROM python:3.10-slim
+
+# 필수 시스템 패키지 설치
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# 작업 디렉토리 설정
+WORKDIR /app
+
+# 필수 Python 라이브러리 설치
+# fastapi, uvicorn: 웹 서버
+# ultralytics: 모델 추론
+# python-multipart: 이미지 업로드 처리용
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    python-multipart \
+    ultralytics \
+    opencv-python-headless \
+    pydantic
+
+# 실행 명령어는 docker-compose에서 주입합니다.
+CMD ["/bin/bash"]

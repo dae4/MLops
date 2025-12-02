@@ -3,6 +3,12 @@
 본 문서는 **NVIDIA GPU 환경**에서 **Docker Compose**를 활용하여 데이터 관리(DVC), 실험 추적(MLflow), 자동화(Airflow)를 통합하는 파이프라인 구축 매뉴얼입니다.
 
 ---
+Phase 1	인프라 구축	Docker Compose, GPU 연결, DB(Postgres) 연동	✅ 완료
+Phase 2	데이터 관리	DVC 설치, 대용량 스토리지(/data2) 연결, Symlink 최적화	✅ 완료
+Phase 3	학습 파이프라인	Airflow DAG 작성, MLflow 실험 기록, 자동화 구현	✅ 완료
+Phase 4	모델 배포 (Serving)	FastAPI 추론 서버 구축, Docker 통합	👈 Next Step
+Phase 5	운영 고도화	모델 레지스트리 관리, 모니터링(Drift 감지)	⬜ 예정
+---
 
 ## 1. 초기 환경 설정 (Host Setup)
 
@@ -66,6 +72,8 @@ git commit -m "Initial DVC setup and COCO128 data tracking"
 
 ## 3.1. docker-compose.yml
 핵심: DB 안정성(Postgres), GPU 할당, OpenCV 자동 수정 (entrypoint), 계정 자동 생성.
+
+# 4. MLflow, airflow 구축
 
 # 5. 실행 및 사용 (Execution)
 ## 5.1. 서비스 시작

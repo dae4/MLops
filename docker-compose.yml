@@ -82,5 +82,29 @@ services:
               count: all
               capabilities: [gpu]
 
+  # 4. Model Serving Server (FastAPI)
+  serving:
+    build:
+      context: .
+      dockerfile: Dockerfile.serving
+    container_name: yolo_serving
+    ports:
+      - "8888:8888"  # API 서버 포트
+    volumes:
+      # 모델 파일을 읽어야 하므로 프로젝트 폴더 연결 필수!
+      - ${PROJECT_ROOT}/MLops:${PROJECT_ROOT}/MLops
+    
+    # GPU 할당 (추론 속도 향상)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    # 서버 실행 명령어 (코드 변경 시 자동 재로딩: --reload)
+    command: python /data1/project/private/MLops/script/serving.py
+
 volumes:
   postgres_data:
