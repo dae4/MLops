@@ -70,8 +70,12 @@ def train_yolo():
         # [핵심 변경] Run ID 대신 '모델의 절대 경로'를 반환합니다.
         return abs_model_path
 
+# script/train.py 의 마지막 부분
+
 if __name__ == "__main__":
     path = train_yolo()
-    # Airflow 환경이 아닐 때만 출력
-    if not os.getenv("AIRFLOW_HOME"):
-        print(f"Train Finished. Model Path: {path}")
+    
+    with open("latest_model_path.txt", "w") as f:
+        f.write(path)
+        
+    print(f"✅ Path saved to latest_model_path.txt: {path}")

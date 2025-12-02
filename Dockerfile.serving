@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir \
     uvicorn \
     python-multipart \
     ultralytics \
-    opencv-python-headless
+    opencv-python-headless \
+    pydantic
 
 # 실행 명령어는 docker-compose에서 주입합니다.
 CMD ["/bin/bash"]

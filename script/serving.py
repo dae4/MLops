@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile,HTTPException
 from ultralytics import YOLO
 import uvicorn
 import os
@@ -7,11 +7,13 @@ import cv2
 import numpy as np
 from io import BytesIO
 from PIL import Image
+from pydantic import BaseModel
 
 app = FastAPI(title="YOLO MLOps Inference Server")
 
 # 전역 변수로 모델 관리
 model = None
+model_path = None  # 초기화 위치 변경
 
 # 프로젝트 경로 (Docker 내부 경로 기준)
 PROJECT_DIR = "/data1/project/private/MLops"
@@ -21,10 +23,11 @@ class ModelUpdate(BaseModel):
     model_path: str
 
 def load_model(path: str):
-    global model
+    global model, model_path  # model_path도 전역으로 가져옴
     try:
         print(f"🔄 Loading model from: {path}")
         model = YOLO(path)
+        model_path = path     # ★ 여기서 경로 변수도 업데이트!
         print("✅ Model loaded successfully!")
         return True
     except Exception as e:
@@ -46,9 +49,6 @@ def get_latest_model():
     latest_file = max(list_of_files, key=os.path.getctime)
     return latest_file
 
-if initial_model_path:
-    load_model(initial_model_path)
-
 # 모델 재로딩 엔드포인트
 @app.post("/reload")
 def reload_model_endpoint(update: ModelUpdate):
@@ -56,7 +56,9 @@ def reload_model_endpoint(update: ModelUpdate):
     Airflow로부터 새로운 모델 경로를 받아서 즉시 교체합니다.
     """
     if not os.path.exists(update.model_path):
-        raise HTTPException(status_code=400, detail="Model file not found.")
+        # [추가] 없을 때도 로그 남기기
+        print(f"❌ Error: File not found at '{update.model_path}'")
+        raise HTTPException(status_code=400, detail=f"Model file not found at: {update.model_path}")
     
     success = load_model(update.model_path)
     if success:
